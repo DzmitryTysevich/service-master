@@ -8,10 +8,7 @@ import com.epam.rd.autocode.domain.Position;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -82,15 +79,23 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     public Employee getWithDepartmentAndFullManagerChain(Employee employee) {
         Employee newEmployee = null;
+        PreparedStatement preparedStatement = null;
         try {
             Connection connection = ConnectionSource.instance().createConnection();
-            Statement statement = connection.createStatement();
-            ResultSet rs = statement.executeQuery(FROM_EMPLOYEE_WHERE_ID + employee.getId());
+            preparedStatement = connection.prepareStatement(FROM_EMPLOYEE_WHERE_ID + employee.getId());
+            ResultSet rs = preparedStatement.executeQuery();
             while (rs.next()) {
                 newEmployee = getEmployee(rs, getFullManagerChain(rs.getInt(MANAGER)));
             }
         } catch (SQLException e) {
             e.printStackTrace();
+        } finally {
+            try {
+                assert preparedStatement != null;
+                preparedStatement.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
         }
         return newEmployee;
     }
@@ -120,30 +125,32 @@ public class EmployeeServiceImpl implements EmployeeService {
     private Employee getFullManagerChain(int managerId) throws SQLException {
         Employee manager = null;
         Connection connection = ConnectionSource.instance().createConnection();
-        Statement statement = connection.createStatement();
-        ResultSet rs = statement.executeQuery(FROM_EMPLOYEE_WHERE_ID + managerId);
+        PreparedStatement preparedStatement = connection.prepareStatement(FROM_EMPLOYEE_WHERE_ID + managerId);
+        ResultSet rs = preparedStatement.executeQuery();
         while (rs.next()) {
             manager = getEmployee(rs, getFullManagerChain(rs.getInt(MANAGER)));
         }
+        preparedStatement.close();
         return manager;
     }
 
     private Employee getManager(int managerId) throws SQLException {
         Employee manager = null;
         Connection connection = ConnectionSource.instance().createConnection();
-        Statement statement = connection.createStatement();
-        ResultSet rs = statement.executeQuery(FROM_EMPLOYEE_WHERE_ID + managerId);
+        PreparedStatement preparedStatement = connection.prepareStatement(FROM_EMPLOYEE_WHERE_ID + managerId);
+        ResultSet rs = preparedStatement.executeQuery();
         while (rs.next()) {
             manager = getEmployee(rs, null);
         }
+        preparedStatement.close();
         return manager;
     }
 
     private Department getDepartment(int departmentId) throws SQLException {
         Department department = null;
         Connection connection = ConnectionSource.instance().createConnection();
-        Statement statement = connection.createStatement();
-        ResultSet rs = statement.executeQuery(FROM_DEPARTMENT_WHERE_ID + departmentId);
+        PreparedStatement preparedStatement = connection.prepareStatement(FROM_DEPARTMENT_WHERE_ID + departmentId);
+        ResultSet rs = preparedStatement.executeQuery();
         while (rs.next()) {
             department = new Department(
                     new BigInteger(rs.getString(ID)),
@@ -151,20 +158,29 @@ public class EmployeeServiceImpl implements EmployeeService {
                     rs.getString(LOCATION)
             );
         }
+        preparedStatement.close();
         return department;
     }
 
     private List<Employee> getEmployees(String query) {
         List<Employee> employees = new ArrayList<>();
+        PreparedStatement preparedStatement = null;
         try {
             Connection connection = ConnectionSource.instance().createConnection();
-            Statement statement = connection.createStatement();
-            ResultSet rs = statement.executeQuery(query);
+            preparedStatement = connection.prepareStatement(query);
+            ResultSet rs = preparedStatement.executeQuery();
             while (rs.next()) {
                 employees.add(getEmployee(rs, getManager(rs.getInt(MANAGER))));
             }
         } catch (SQLException e) {
             e.printStackTrace();
+        }finally {
+            try {
+                assert preparedStatement != null;
+                preparedStatement.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
         }
         return employees;
     }
